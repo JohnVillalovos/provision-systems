@@ -1,0 +1,5 @@
+---
+- hosts: systems
+  tasks:
+  - include_role:
+      name: base

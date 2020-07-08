@@ -1,0 +1,129 @@
+---
+
+- name: Ubuntu base setup
+  block:
+    - name: Update package database
+      apt:
+        update_cache: yes
+    
+    - name: Update packages
+      apt:
+        name: '*'
+        state: latest
+
+    - name: Check if a reboot is needed for Debian and Ubuntu boxes
+      register: reboot_required_file
+      stat: path=/var/run/reboot-required get_md5=no
+
+    - name: Reboot the Debian or Ubuntu server
+      reboot:
+        msg: "Reboot initiated by Ansible due to kernel updates"
+        connect_timeout: 5
+        reboot_timeout: 300
+        pre_reboot_delay: 0
+        post_reboot_delay: 30
+        test_command: uptime
+      when: reboot_required_file.stat.exists
+  
+    - name: Remove packages
+      apt:
+        name:
+          - ripgrep   # currently broken https://bugs.launchpad.net/ubuntu/+source/rust-bat/+bug/1868517
+        state: absent
+
+    - name: Install desired packages
+      apt:
+        name:
+          - apt-file
+          - aptitude
+          - bash-completion
+          - bat
+          - fd-find
+          - fzf
+          - git
+          - iputils-ping
+          - powerline
+            #          - ripgrep   # currently broken https://bugs.launchpad.net/ubuntu/+source/rust-bat/+bug/1868517
+          - silversearcher-ag
+          - unattended-upgrades
+          - vim-nox
+          - wajig
+        state: present
+
+    - name: enable service unattended-upgrades and ensure it is not masked
+      systemd:
+        name: unattended-upgrades
+        enabled: yes
+        state: started
+        masked: no
+
+    - name: Disable Ubuntu's advertising in the MOTD
+      lineinfile:
+        path: /etc/default/motd-news
+        regexp: '^ENABLED='
+        line: 'ENABLED=0'
+    
+  when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+  become: yes
+
+- name: Setup for Fedora
+  block:
+    - name: Upgrade packages
+      dnf:
+        name: '*'
+        state: latest
+    
+    - name: Install desired packages
+      dnf:
+        name:
+          - bash-completion
+          - bat
+          - exa
+          - fd-find
+          - fzf
+          - git
+          - iputils
+          - dnf-automatic
+          - powerline
+          - ripgrep
+          - starship
+          - the_silver_searcher
+          - vim-enhanced
+        state: present
+
+    - name: Copy /etc/dnf/automatic.conf
+      copy:
+        src: etc/dnf/automatic.conf
+        dest: /etc/dnf/automatic.conf
+        owner: root
+        group: root
+        mode: 0644
+        backup: yes
+
+    - name: enable service dnf-automatic and ensure it is not masked
+      systemd:
+        name: dnf-automatic.timer
+        enabled: yes
+        state: started
+        masked: no
+
+  when: ansible_distribution == 'Fedora'
+  become: yes
+    
+
+- name: Copy home directory files to root user
+  copy:
+    src: home_dir/
+    dest: /root/
+    owner: root
+    group: root
+    mode: 0644
+  become: yes
+
+- name: Copy home directory files to current user
+  copy:
+    src: home_dir/
+    dest: "~/"
+    mode: 0644
+
+

@@ -1,0 +1,9 @@
+all:
+  #vars:
+    # Use user 'root' for all systems
+    #    ansible_user: root
+  children:
+    systems:
+      hosts:
+        vm1.example.com:
+        vm2.example.com:
